@@ -1,4 +1,4 @@
-# *R* replication code for "The blue paradox: Preemptive overfishing in Marine Reserves"
+# *R* replication code for "The blue paradox: Preemptive overfishing in marine reserves"
 
 This sub-directory contains the *R* code used in McDermott, Meng, *et al*. (2018). It contains a single script file, `R/blueparadox.R`, which can be used to reproduce Figs. 1-2, 4-5, and S5-S6 from the paper. In addition, while Fig. 3 was originally produced using STATA (see the accompanying sub-directory), the script contains code for producing a mock-up version in *R*.
 
