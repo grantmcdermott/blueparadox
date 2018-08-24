@@ -14,10 +14,10 @@ Date: July 24, 2018
 
 
 //Set directories  
-	cd .. //User must set local directory	
+	cd . //The assumed relative path is "blueparadox/STATA". Users must set this local directory manually if that is not the case. 
 
-	global inputDir "../data"
-	global dataDir "data"
+	global inputDir "../data" 
+	global dataDir "data" 
 	global figuresDir "../figures"
 
 

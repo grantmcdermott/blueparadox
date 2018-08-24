@@ -8,15 +8,14 @@ These scripts were developed for STATA v13.
 
 ## Structure
 
-This STATA section of the repo contains two sub-directories: 1) `code/` and 2) `data/`.
+The STATA section of the repo contains the following files and sub-directories:
 
-### 1) `code/`
+*Note that the assumed relative path for running all of the STATA code is `blueparadox/STATA` (i.e. the location of this README). This relative path should be set automatically if you open STATA by clicking on any of the do-files below. However, users should manually set their local directory if that is not the case.*
 
-STATA code for executing the analysis. It contains 3 files: 
-1. `code/prepare_data.do` loads, cleans and merges the raw data files (described in `..data/README.md`) to generate `data/region_day_ready.dta`, the STATA data file used for Figures 3, S1-S4. Users must change the local directory to one's own machine.
-2. `code/figures.do` generates all figures. Users should change the local directory to one's own machine. Note, however, that it is assumed the figures will be exported to a parent `blueparadox/figures` directory in accordance with the structure of this repo. 
-3. `code/STATA_toolbox/i/ivreg2.ado` is the STATA ado program for the regression procedure used in the paper. 
+1. `prepare_data.do`: STATA do-file for loading, cleaning and merging the [raw data files](https://github.com/grantmcdermott/blueparadox/tree/master/data). Running this file will generate `data/region_day_ready.dta`, which is the STATA data file used for the actual analysis (see below). 
 
-### 2) `data/`
+2. `data/region_day_ready.dta`: STATA-ready dataset produced from running the above do-file. This is the primary dataset for executing all of the analysis.
 
-This directory contains `data/region_day_ready.dta`, which is the primary dataset ready for use in the STATA analysis. (Not to be confused with the raw/input data directory that is shared by both the STATA and *R* scripts in the repo; note the missing `../` at the beginning of the relative path.) 
+3. `figures.do`: STATA do-file for executing the analysis. Running this do-file will generate Figs. 3 and S1-S4 from the paper and then export them to the `blueparadox/figures` directory higher up in the repo.
+
+4. `STATA_toolbox/i/ivreg2.ado`: STATA ado program for the regression procedure used in the paper. 
