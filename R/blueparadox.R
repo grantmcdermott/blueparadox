@@ -15,6 +15,7 @@ library(scales)
 library(lubridate)
 library(cowplot)
 library(extrafont)
+library(here)
 
 #######################################################
 ########## LOAD FUNCTIONS AND GLOBAL ELEMENTS #########
@@ -53,11 +54,11 @@ proj_string <- "+proj=robin +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no
 ####################################################
 
 ## 1) GFW data: Daily, vessel-level fishing effort effort in Kirbati, split by sub-area.
-gfw <- read_csv("data/gfw_split.csv") 
+gfw <- read_csv(paste0(here(), "/data/gfw_split.csv"))
 
 ## 2) SST from NOAA via Google Earth Engine. 
 ## See: https://code.earthengine.google.com/37b28087611328018b11eac46d8d1966
-sst <- read_csv("data/sst_split.csv") 
+sst <- read_csv(paste0(here(), "/data/sst_split.csv")) 
 
 
 ####################################
@@ -71,7 +72,7 @@ sst <- read_csv("data/sst_split.csv")
 ## Read in the World Database on Protected Areas (WDPA).
 ## Downloaded from: https://www.protectedplanet.net/
 ## Will get some warning messages but these can be ignored.
-wdpa <- read_csv("data/wdpa.csv")
+wdpa <- read_csv(paste0(here(), "/data/wdpa.csv"))
 
 ## Collapse into yearly MPA totals (i.e. How many MPAs were designated that year)
 mpas <- 
@@ -117,13 +118,13 @@ fig1 <-
 #
 fig1 +
   ggsave(
-    "figures/PNGs/figure1.png",
+    paste0(here(), "/figures/PNGs/figure1.png"),
     width = 6, height = 4
     )
 #
 fig1 +
   ggsave(
-    "figures/figure1.pdf",
+    paste0(here(), "/figures/figure1.pdf"),
     width = 6, height = 4,
     device = cairo_pdf
     )
@@ -139,7 +140,7 @@ rm(mpas, fig1)
 ## Read in the Kiribati EEZ shapefile
 eez_kiribati <- 
   read_sf(
-    dsn = "data/shapefiles/World_EEZ_v9_20161021_LR", 
+    dsn = paste0(here(), "/data/shapefiles/World_EEZ_v9_20161021_LR"), 
     layer = "eez_lr"
     ) %>%
   subset(
@@ -152,7 +153,7 @@ eez_kiribati <-
 ## Read in the the PIPA shapefile (which is nested inside the Kirbati EEZ)
 pipa_shape <- 
   read_sf(
-    dsn = "data/shapefiles/pipa_shapefile", 
+    dsn = paste0(here(), "/data/shapefiles/pipa_shapefile"), 
     layer = "worldheritagemarineprogramme"
     ) %>%
   st_transform(proj_string)
@@ -263,13 +264,13 @@ fig2 <-
 
 ## Save the map
 save_plot(
-  "figures/PNGs/figure2.png",
+  paste0(here(), "/figures/PNGs/figure2.png"),
   fig2,
   base_width = 6, base_height = 4
   )
 ## Save the map
 save_plot(
-  "figures/figure2.pdf",
+  paste0(here(), "/figures/figure2.pdf"),
   fig2,
   base_width = 6, base_height = 4
   )
@@ -476,12 +477,12 @@ lapply(f_measure, function(f_var) {
   
   fig3 +
     ggsave(
-      paste0("figures/PNGs/", f_name,".png"),
+      paste0(here(), "/figures/PNGs/", f_name,".png"),
       width = 10, height = 8
       )
   fig3 +
     ggsave(
-      paste0("figures/", f_name,".pdf"),
+      paste0(here(), "/figures/", f_name,".pdf"),
       width = 10, height = 8,
       device = cairo_pdf
       )
@@ -517,7 +518,7 @@ rm(sst, control_area_km2, f_measure)
 ## http://www.fao.org/geonetwork/srv/en/main.home?uuid=ac02a460-da52-11dc-9d70-0017f293bd28
 fao_regions <- 
   read_sf(
-    dsn = "data/shapefiles/FAO_AREAS", 
+    dsn = paste0(here(), "/data/shapefiles/FAO_AREAS"), 
     layer = "FAO_AREAS"
     )  %>%
   filter(F_LEVEL=="MAJOR") %>%
@@ -527,7 +528,7 @@ fao_regions <-
 ## Read in the MPA-coverage-by-FAO-region data.
 ## Source: WDPA, including MPAs already designated and not terrestrial.
 ## https://www.protectedplanet.net/marine
-mpa_by_region <- read_csv("data/mpa_by_region.csv")
+mpa_by_region <- read_csv(paste0(here(), "/data/mpa_by_region.csv"))
 
 ## Fishing effort announcement effect scalar from PIPA D-i-D analysis.
 ## Should already have been calculated as part of Figure 3 above...
@@ -542,7 +543,7 @@ mpa_size <- 0.3
 ## Current F/FMSY for each region is catch-weighted mean for that region.
 ## These numbers match supplementary materials from that publication.
 status_by_fao_region <- 
-  read_csv("data/status_by_FAO_region.csv") %>%
+  read_csv(paste0(here(), "/data/status_by_FAO_region.csv")) %>%
   mutate(current_FvFmsy = CatchWtMeanF) %>%
   ## Add column for expected F/FMSY under MPA announcement scenario
   ## Apply announcement effect scalar to proportion of current F/FMSY equal to the increase in MPA size
@@ -558,7 +559,7 @@ status_by_fao_region <-
 
 ## Read in the stock status from Costello et al. (2016).
 ## This contains current stock status (F/FMSY) for all stocks in the database.
-stock_status <- read.csv("data/stock_status.csv")
+stock_status <- read.csv(paste0(here(), "/data/stock_status.csv"))
 
 ## Do the following for each stock: 1) Figure out which FAO regions it exists in, 
 ## 2) take the average MPA increase across regions, and then 3) figure out what 
@@ -608,7 +609,7 @@ percent_overfishing <-
     )
 
 ## Get the FAO names for labelling
-fao_names <- read.csv("data/fao_names.csv")
+fao_names <- read.csv(paste0(here(), "/data/fao_names.csv"))
 
 ## Finally, we are ready to plot the MPA coverage by FAO region.
 fig4 <- 
@@ -638,12 +639,12 @@ fig4 <-
 ## Save to disk
 fig4 +
   ggsave(
-    "figures/PNGs/figure4.png",
+    paste0(here(), "/figures/PNGs/figure4.png"),
     width=5, height=3
     )
 fig4 +
   ggsave(
-    "figures/figure4.pdf",
+    paste0(here(), "/figures/figure4.pdf"),
     width=5, height=3,
     device = cairo_pdf
     )
@@ -676,12 +677,12 @@ fao_regions_long <-
   ## Reproject to Robinson
   st_transform(proj_string_fao)
 
-# ## Create a (Prime Meridian-centered) world sf object from the maps package
+## Create a (Prime Meridian-centered) world sf object from the maps package
 world_land <-
   st_as_sf(rworldmap::countriesLow) %>% ## data(countriesLow) is from the rworldmap package
   st_transform(proj_string_fao)
 
-# Create global plot of current and expected fishery status by FAO region  
+## Create global plot of current and expected fishery status by FAO region  
 fig5 <- 
   ggplot() +
   geom_sf(data = world_land, color = "black", fill = "black") +
@@ -712,12 +713,12 @@ fig5 <-
 ## Save to disk
 fig5 +
   ggsave(
-    filename="figures/PNGs/figure5.png",
+    filename=paste0(here(), "/figures/PNGs/figure5.png"),
     width=4, height=3
     )
 fig5 +
   ggsave(
-    filename="figures/figure5.pdf",
+    filename=paste0(here(), "/figures/figure5.pdf"),
     width=4, height=3
     )
 
@@ -773,13 +774,13 @@ figS5 <-
 #
 figS5 +
   ggsave(
-    "figures/PNGs/figureS5.png",
+    paste0(here(), "/figures/PNGs/figureS5.png"),
     width = 8, height = 6
     )
 #
 figS5 +
   ggsave(
-    "figures/figureS5.pdf",
+    paste0(here(), "/figures/figureS5.pdf"),
     width = 8, height = 6,
     device = cairo_pdf
     )
@@ -827,13 +828,13 @@ figS6 <-
 #
 figS6 +
   ggsave(
-    "figures/PNGs/figureS6.png",
+    paste0(here(), "/figures/PNGs/figureS6.png"),
     width = 8, height = 6
   )
 #
 figS6 +
   ggsave(
-    "figures/figureS6.pdf",
+    paste0(here(), "/figures/figureS6.pdf"),
     width = 8, height = 6,
     device = cairo_pdf
   )

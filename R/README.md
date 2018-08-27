@@ -12,7 +12,7 @@ You will need to install a number of external *R* packages to run the code succe
 
 ```
 if (!require("pacman")) install.packages("pacman")
-pacman::p_install(tidyverse, broom, lubridate, sf, sp, raster, maps, rworldmap, ggsn, rms, estimatr, furrr, scales, cowplot, extrafont)
+pacman::p_install(c(tidyverse, broom, lubridate, sf, sp, raster, maps, rworldmap, rms, estimatr, furrr, scales, cowplot, extrafont, here))
 devtools::install_github("oswaldosantos/ggsn") ## Using development version of ggsn
 pacman::p_update()
 ```
