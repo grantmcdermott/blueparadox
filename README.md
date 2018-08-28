@@ -1,6 +1,6 @@
 # The blue paradox: Preemptive overfishing in marine reserves
 
-This repo contains the code and data for reproducing McDermott, Meng, *et al*. (PNAS, 2018): "The blue paradox: Preemptive overfishing in marine reserves". Click on the "fork" button at the very top right of the page to create an independent copy of the repo within your own GitHub account. Alternately, click on the green "clone or download" button just below that to download the repo to your local computer.
+This repo contains the code and data for reproducing McDermott, Meng, *et al*. (PNAS, 2018): "[The blue paradox: Preemptive overfishing in marine reserves](http://dx.doi.org/10.1073/pnas.1802862115)". Click on the "fork" button at the very top right of the page to create an independent copy of the repo within your own GitHub account. Alternately, click on the green "clone or download" button just below that to download the repo to your local computer.
 
 ## Software
 
