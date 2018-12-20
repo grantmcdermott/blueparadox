@@ -13,11 +13,11 @@ Date: November 1, 2018
 	capture log close
 
 //Set directories
-	cd . //The assumed relative path is "blueparadox/STATA". Users must set this local directory manually if that is not the case.
+	cd .. //The assumed relative path is "blueparadox/STATA" (i.e. one directory up). Users must set this local directory manually if that is not the case.
 
 	global inputDir "../data"
 	global dataDir "data"
-	global figuresDir "../figures"
+	global figuresDir "../figures/hanich-reply"
 
 	sysdir set PERSONAL STATA_toolbox //set directory for user-written STATA programs
 
@@ -257,4 +257,4 @@ Date: November 1, 2018
 	graphregion(color(white))
 
 
-	graph export $figuresDir/figure_AIS.pdf, replace
+	graph export $figuresDir/figure2.pdf, replace
