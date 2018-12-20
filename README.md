@@ -1,8 +1,10 @@
 # The blue paradox: Preemptive overfishing in marine reserves
 
-This repo contains the code and data for reproducing McDermott, Meng, *et al*. (PNAS, 2018): "[The blue paradox: Preemptive overfishing in marine reserves](http://dx.doi.org/10.1073/pnas.1802862115)". 
+This repo contains the code and data for reproducing McDermott, Meng, *et al*. (PNAS, 2018a): "[The blue paradox: Preemptive overfishing in marine reserves](http://dx.doi.org/10.1073/pnas.1802862115)".
 
 > **Abstract:** Most large-scale conservation policies are anticipated or announced in advance. This risks the possibility of preemptive resource extraction before the conservation intervention goes into force. We use a high-resolution dataset of satellite-based fishing activity to show that anticipation of an impending no-take marine reserve undermines the policy by triggering an unintended race-to-fish. We study one of the world’s largest marine reserves, the Phoenix Islands Protected Area (PIPA), and find that fishers more than doubled their fishing effort once this area was earmarked for eventual protected status. The additional fishing effort resulted in an impoverished starting point for PIPA equivalent to 1.5 y of banned fishing. Extrapolating this behavior globally, we estimate that if other marine reserve announcements were to trigger similar preemptive fishing, this could temporarily increase the share of overextracted fisheries from 65% to 72%. Our findings have implications for general conservation efforts as well as the methods that scientists use to monitor and evaluate policy efficacy.
+
+**UPDATE (Dec 20, 2018):** The repo now includes code for reproducing the companion piece to the above article, i.e. McDermott, Meng, *et al*. (PNAS, 2018b): "[Alternate explanations for the blue paradox do not withstand statistical scrutiny](https://doi.org/10.1073/pnas.1818687115)". (Written in reply to [Hanich *et al*. (2018)](https://doi.org/10.1073/pnas.1815600115).)
 
 Click on the "fork" button at the very top right of the page to create an independent copy of the repo within your own GitHub account. Alternately, click on the green "clone or download" button just below that to download the repo to your local computer.
 
