@@ -2,13 +2,13 @@ library(sf)
 library(maps)
 library(rworldmap)
 ## Note: Need development version of ggsn for map to work
-library(ggsn) ## devtools::install_github('oswaldosantos/ggsn')
+library(ggsn) ## remotes::install_github('oswaldosantos/ggsn')
 library(sp)
 library(raster)
 library(rms)
 library(tidyverse)
 library(broom)
-library(estimatr)
+library(sandwich)
 library(furrr)
 # library(grid) ## Loads with ggsn
 library(scales)
@@ -38,8 +38,8 @@ theme_set(
       legend.justification = "center",
       strip.background = element_rect(colour = "white", fill = "white"),
       panel.spacing = unit(2, "lines")
-      )
-  )
+    )
+)
 
 ## Key PIPA announcement and enforcement dates
 anticip_date <- ymd("2013-09-01") ## http://www.earthisland.org/journal/index.php/eij/article/somethings_fishy/
@@ -54,11 +54,11 @@ proj_string <- "+proj=robin +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no
 ####################################################
 
 ## 1) GFW data: Daily, vessel-level fishing effort effort in Kirbati, split by sub-area.
-gfw <- read_csv(paste0(here(), "/data/gfw_split.csv"))
+gfw <- read_csv(here("data/gfw_split.csv"))
 
 ## 2) SST from NOAA via Google Earth Engine. 
 ## See: https://code.earthengine.google.com/37b28087611328018b11eac46d8d1966
-sst <- read_csv(paste0(here(), "/data/sst_split.csv")) 
+sst <- read_csv(here("data/sst_split.csv")) 
 
 
 ####################################
@@ -72,7 +72,7 @@ sst <- read_csv(paste0(here(), "/data/sst_split.csv"))
 ## Read in the World Database on Protected Areas (WDPA).
 ## Downloaded from: https://www.protectedplanet.net/
 ## Will get some warning messages but these can be ignored.
-wdpa <- read_csv(paste0(here(), "/data/wdpa.csv"))
+wdpa <- read_csv(here("data/wdpa.csv"))
 
 ## Collapse into yearly MPA totals (i.e. How many MPAs were designated that year)
 mpas <- 
@@ -87,13 +87,13 @@ mpas <-
   summarize(
     num_mpas = n_distinct(NAME),
     area_km2 = sum(REP_M_AREA)
-    ) %>%
+  ) %>%
   ungroup() %>%
   arrange(STATUS_YR) %>%
   mutate(
     num_mpas_culm = cumsum(num_mpas),
     area_km2_culm = cumsum(area_km2)
-    )
+  )
 rm(wdpa)
 
 ## Cumulative MPAs over time
@@ -106,28 +106,28 @@ fig1 <-
   ylab("Cumulative number of MPAs") +
   scale_color_continuous(
     name = expression(atop("Cumulative area", (paste("million km" ^2))))
-    ) +
+  ) +
   scale_size_continuous(
     name = expression(atop("Cumulative area", (paste("million km" ^2))))
-    ) +
+  ) +
   guides(
     color= guide_legend(),
     size = guide_legend()
-    ) +
+  ) +
   theme(axis.title.x = element_blank())
 #
 fig1 +
   ggsave(
-    paste0(here(), "/figures/PNGs/figure1.png"),
+    here("figures/PNGs/figure1.png"),
     width = 6, height = 4
-    )
+  )
 #
 fig1 +
   ggsave(
-    paste0(here(), "/figures/figure1.pdf"),
+    here("figures/figure1.pdf"),
     width = 6, height = 4,
     device = cairo_pdf
-    )
+  )
 
 dev.off()
 rm(mpas, fig1)
@@ -140,22 +140,22 @@ rm(mpas, fig1)
 ## Read in the Kiribati EEZ shapefile
 eez_kiribati <- 
   read_sf(
-    dsn = paste0(here(), "/data/shapefiles/World_EEZ_v9_20161021_LR"), 
+    dsn = here("data/shapefiles/World_EEZ_v9_20161021_LR"), 
     layer = "eez_lr"
-    ) %>%
+  ) %>%
   subset(
     GeoName %in% c("Kiribati Exclusive Economic Zone (Phoenix Islands)",
                    "Kiribati Exclusive Economic Zone (Line Islands)",
                    "Kiribati Exclusive Economic Zone (Gilbert Islands)")
-    ) %>%
+  ) %>%
   st_transform(proj_string)
 
 ## Read in the the PIPA shapefile (which is nested inside the Kirbati EEZ)
 pipa_shape <- 
   read_sf(
-    dsn = paste0(here(), "/data/shapefiles/pipa_shapefile"), 
+    dsn = here("data/shapefiles/pipa_shapefile"), 
     layer = "worldheritagemarineprogramme"
-    ) %>%
+  ) %>%
   st_transform(proj_string)
 
 ## Define a bounding box for Kiribati
@@ -180,25 +180,25 @@ base_map <-
     data = eez_kiribati,# %>% st_transform(proj_string),
     aes(fill = "Phoenix Islands (Non-PIPA)"),
     lwd=0.25
-    ) +
+  ) +
   geom_sf(
     data = pipa_shape,# %>% st_transform(proj_string),
     aes(fill = "PIPA     "),
     lwd=0.25
-    ) +
+  ) +
   geom_sf(
     data = eez_kiribati %>%
       subset(GeoName %in% c("Kiribati Exclusive Economic Zone (Line Islands)",
                             "Kiribati Exclusive Economic Zone (Gilbert Islands)")
-             ), #%>%
-            # st_transform(proj_string),
+      ), #%>%
+    # st_transform(proj_string),
     aes(fill = "Kiribati control    "),
     lwd=0.25
-    ) +
+  ) +
   geom_sf(
     data = world2,
     fill = "black", col = "black", lwd = 0
-    ) +
+  ) +
   theme_bw() +
   theme(
     legend.title=element_blank(),
@@ -208,13 +208,13 @@ base_map <-
     axis.ticks.x=element_blank(),
     axis.text.y=element_blank(),
     axis.ticks.y=element_blank()
-    ) +
+  ) +
   scale_fill_manual(
     values=c("Phoenix Islands (Non-PIPA)" = "lightgrey",
              "PIPA     " = "#e41a1c",
              "Kiribati control    " = "#377eb8"),
     breaks=c("PIPA     ", "Kiribati control    ", "Phoenix Islands (Non-PIPA)")
-    ) 
+  ) 
 
 ## Create the world map for inset
 w_map <- 
@@ -222,7 +222,7 @@ w_map <-
   geom_sf(
     data = kiribati_bounding_box %>% st_transform(proj_string),
     fill = NA, alpha = 1, lwd=0.25
-    ) +
+  ) +
   guides(fill=FALSE)
 
 
@@ -238,7 +238,7 @@ k_map <-
   coord_sf(
     xlim = c(map_bbox["xmin"],map_bbox["xmax"]), 
     ylim = c(map_bbox["ymin"],map_bbox["ymax"])
-    )  +
+  )  +
   ggsn::scalebar(
     data = eez_kiribati,# %>% st_transform(proj_string),
     dist = 1000,
@@ -246,7 +246,7 @@ k_map <-
     st.dist = 0.05,
     st.size = 5,
     location="topleft"
-    ) +
+  ) +
   xlab("") +
   ylab("") +
   theme(
@@ -254,7 +254,7 @@ k_map <-
     legend.position = "bottom",
     legend.direction="horizontal",
     legend.text=element_text(size=12)
-    )
+  )
 
 ## Finally, combine the world map inset and the Kiribati map
 fig2 <- 
@@ -264,16 +264,16 @@ fig2 <-
 
 ## Save the map
 save_plot(
-  paste0(here(), "/figures/PNGs/figure2.png"),
+  here("figures/PNGs/figure2.png"),
   fig2,
   base_width = 6, base_height = 4
-  )
+)
 ## Save the map
 save_plot(
-  paste0(here(), "/figures/figure2.pdf"),
+  here("figures/figure2.pdf"),
   fig2,
   base_width = 6, base_height = 4
-  )
+)
 
 dev.off()
 rm(fig2, k_map, w_map, kiribati_bounding_box, base_map, eez_kiribati, 
@@ -308,7 +308,7 @@ gfw <-
     raw_hours_norm = raw_hours/area_km2,
     logistic_hours_norm = logistic_hours/area_km2,
     nnet_hours_norm = nnet_hours/area_km2
-    )
+  )
 
 ## Collapse into a new data frame of daily means, i.e. summed across all vessels 
 ## by region.
@@ -328,7 +328,7 @@ gfw_daily <-
       mutate(region = ifelse(region=="pipa", "PIPA", "Control")) %>%
       group_by(Date, region) %>%
       summarise(sst = mean(sst, na.rm=T)) 
-    ) %>%
+  ) %>%
   ungroup
 
 ## Lastly, multiply fishing effort by 1,000 to get (normalised) hours per 
@@ -336,7 +336,7 @@ gfw_daily <-
 ## regression tables that default to three decimal places). 
 gfw_daily <-
   gfw_daily %>%
-  mutate_at(vars(raw_hours:nnet_hours_norm), funs(.*1000)) 
+  mutate_at(vars(raw_hours:nnet_hours_norm), ~.*1000) 
 
 ## Regression analysis
 
@@ -346,170 +346,178 @@ knots_pre <- 6
 knots_post <- 6
 
 ## Now, create a faceted plot with the "break even" difference at the bottom.
-## Choose which fishing effort measure(s) to use
-f_measure <- c("logistic_hours_norm", "nnet_hours_norm")[1] ## Remove the '[1]' to produce figs for both measures
-lapply(f_measure, function(f_var) {
-  
-  f_var <- enexpr(f_var)
-  
-  gfw_daily_main <- gfw_daily
-  
-  gfw_daily_diff <- 
-    gfw_daily_main %>% 
-    select(Date, region, !!f_var) %>% 
-    spread(region, !!f_var) %>%
-    mutate(y_var = PIPA - Control) %>% 
-    mutate(
-      region = "Difference", 
-      grp = "Diff"
-    ) %>% 
-    select(Date, region, y_var, grp)
-  
-  gfw_daily_main <-
-    gfw_daily_main %>%
-    mutate(grp = "Main") %>% 
-    rename("y_var" = enexpr(f_var)) %>% 
-    select(Date, region, y_var, grp)
-  
-  ## Compute the RCSs separately for the pre- and post-enforcement periods
-  gfw_daily_new <- bind_rows(gfw_daily_main, gfw_daily_diff)
-  gfw_daily_new$region <- factor(gfw_daily_new$region, levels  = c("PIPA", "Control", "Difference"))
-  gfw_daily_new$grp <- factor(gfw_daily_new$grp, levels  = c("Main", "Diff"))
-  
-  gfw_daily1 <-
-    gfw_daily_new %>%
-    filter(Date<enforce_date) %>%
-    mutate(smooth = predict(lm_robust(y_var ~ region*rcs(as.numeric(Date), knots_pre))))
-  gfw_daily2 <-
-    gfw_daily_new %>%
-    filter(Date>=enforce_date) %>%
-    mutate(smooth = predict(lm_robust(y_var ~ region*rcs(as.numeric(Date), knots_post))))
-  gfw_daily_new <- bind_rows(gfw_daily1, gfw_daily2)
-
-  ## Find the "break even" point at which the enforced ban finally makes up for the
-  ## equivalent increase in effort.
-  # start_date <- anticip_date
-  start_date <-
-    gfw_daily_new %>%
-    filter(grp=="Diff", Date<=anticip_date) %>%
-    arrange(desc(Date)) %>%
-    filter(y_var<=0) %>%
-    slice(1) %>%
-    pull(Date) + days(1)
-  
-  break_even <- 
-    gfw_daily_new %>% 
-    filter(grp=="Diff", Date>=start_date) %>%  
-    mutate(culm_diff = cumsum(smooth)) %>% 
-    filter(Date>enforce_date, culm_diff<=0) %>% 
-    slice(1) %>% 
-    pull(Date)
-
-  ann_text <-
-    data.frame(
-      Date = ymd("2015-03-01"), 
-      y_var = -0.05,
-      lab = paste0("Break even = ",round((enforce_date%--%break_even) / dyears(1), 1), " years"),
-      grp = factor("Diff", levels  = c("Main", "Diff")),
-      region <- factor("Differences", levels  = c("PIPA", "Control", "Difference"))
+break_even_plot <-
+  function (f_var) {
+    gfw_main <- gfw_daily
+    
+    ## We want to compute the RCSs separately for the pre- and post-enforcement 
+    ## periods. We also want to plot separate facets for the observed regions
+    ## (i.e. "PIPA" and "Control") and the difference series. The next few lines
+    ## of code prep the data with data with these goals in mind.
+    
+    gfw_diff <- 
+      gfw_main %>% 
+      select(Date, region, {{f_var}}) %>% 
+      spread(region, {{f_var}}) %>%
+      mutate(y_var = PIPA - Control) %>% 
+      mutate(
+        region = "Difference", 
+        grp = "Diff"
+      ) %>% 
+      select(Date, region, y_var, grp)
+    
+    gfw_main <-
+      gfw_main %>%
+      mutate(grp = "Main") %>% 
+      rename("y_var" = f_var) %>%
+      select(Date, region, y_var, grp)
+    
+    gfw_rcs <- bind_rows(gfw_main, gfw_diff)
+    gfw_rcs$region <- factor(gfw_rcs$region, levels  = c("PIPA", "Control", "Difference"))
+    gfw_rcs$grp <- factor(gfw_rcs$grp, levels  = c("Main", "Diff"))
+    
+    ## Fit the RCS regressions in a DiD framework (i.e. pre & post separately)
+    ## with some help from tidyr::nest(). We'll then extract the predictions and 
+    ## manually calculate the pointwise HAC SEs (and 90% CI) using the sandwich 
+    ## package, as well as some help from purrr::map().
+    gfw_rcs <-
+      gfw_rcs %>%
+      mutate(prepost = if_else(Date < enforce_date, "pre", "post")) %>%
+      group_by(prepost) %>%
+      nest() %>%
+      ## Run a separate model for each period
+      mutate(mod = data %>%
+               map( ~ lm(y_var ~ region*rms::rcs(as.numeric(Date), knots_post), data = .x))) %>%
+      ## Extract DoF
+      mutate(dof = mod %>% map(~ df.residual(.x))) %>%
+      ## Generate (point) predictions
+      mutate(fit = mod %>% map(~ tibble(fit = predict(.x)))) %>%
+      ## Get the design matrix
+      mutate(X_mat = mod %>% map(~ model.matrix(.x))) %>%
+      ## Get HAC VCOV matrix and calculate pointwise HAC SEs
+      mutate(
+        v_hac = mod %>% map(~ sandwich::NeweyWest(.x, prewhite=FALSE, lag = 60)),
+        se_fit_hac = list(X_mat, v_hac) %>% pmap(~ sqrt(rowSums((.x %*% .y) * .x)))
+      ) %>%
+      ## Remove list columns that are no longer needed
+      select(-c(mod, X_mat, v_hac)) %>%
+      ## Unnest to get data in nice tibble form again
+      unnest(cols = c(data, dof, fit, se_fit_hac)) %>%
+      ## Construct 90% CI
+      mutate(
+        lwr_hac = fit - qt(0.95, df=dof)*se_fit_hac,
+        upr_hac = fit + qt(0.95, df=dof)*se_fit_hac
       )
-
-  fig3 <-
-    gfw_daily_new %>%
-    filter(y_var <= 1) %>% ## To improve visual inspection
-    filter(grp=="Main") %>%
-    ggplot(aes(x=Date, y=y_var, col=region, fill=region)) +
-    geom_hline(yintercept = 0, lwd = 0.25, col = "gray") +
-    ## Add the shaded "break even" ribbon.
-    geom_ribbon(
-      data = gfw_daily_new %>% filter(grp=="Diff", Date>=start_date, Date<=break_even),
-      inherit.aes = F, ## Otherwise causes scales="free" option of facet_wrap to fail for some reason
-      aes(x = Date, ymin=0, ymax=smooth),
-      fill="gray", col=NA, alpha=0.5
+    
+    ## Find the "break even" point at which the enforced ban finally makes up for the
+    ## equivalent increase in effort.
+    # start_date <- anticip_date
+    start_date <-
+      gfw_rcs %>%
+      filter(grp=="Diff", Date<=anticip_date) %>%
+      arrange(desc(Date)) %>%
+      filter(y_var<=0) %>%
+      slice(1) %>%
+      pull(Date) + days(1)
+    break_even <-
+      gfw_rcs %>%
+      filter(grp=="Diff", Date>=start_date) %>%
+      ungroup %>%
+      mutate(culm_diff = cumsum(fit)) %>%
+      filter(Date>enforce_date, culm_diff<=0) %>%
+      slice(1) %>%
+      pull(Date)
+    
+    ## How long does it take to recover (in years)?
+    recovery <- round((enforce_date %--% break_even)/ dyears(1), 1)
+    ## Make a DF version (with a label) for the plot
+    recovery_df <-
+      tibble(
+        Date = enforce_date, y = 0, 
+        region = factor("Difference", levels = levels(gfw_rcs$region)),
+        grp = factor("Diff", levels = levels(gfw_rcs$grp)),
+        lab = paste0(" Preemptive fishing = ", recovery, " years of ban")
+      )
+    
+    ## Plot the figure
+    fig <-
+      gfw_rcs %>%
+      ggplot(aes(x = Date, group = region, col = region, fill = region)) +
+      ## Add the shaded "break even" ribbon.
+      geom_ribbon(
+        data = . %>% filter(grp=="Diff", Date>=start_date, Date<=break_even),
+        aes(ymin=0, ymax=fit),
+        fill="gray", col=NA, alpha=0.5
       ) +
-    geom_point(alpha=0.3, size = 0.5) +
-    geom_line(data = gfw_daily_new %>% filter(grp=="Main", Date<enforce_date), aes(y=smooth), lwd = 1) +
-    geom_line(data = gfw_daily_new %>% filter(grp=="Main", Date>=enforce_date), aes(y=smooth), lwd = 1) +
-    stat_smooth(
-      data = gfw_daily_new %>% filter(grp=="Diff", Date<enforce_date),
-      method = "lm_robust", formula = y ~ rcs(x, knots_pre),
-      show.legend = F
+      geom_point(
+        data = . %>% filter(grp == "Main") %>% filter(y_var <= 1), ## To aid visual inspection
+        aes(y = y_var), show.legend = FALSE,
+        alpha=0.3, size = 0.5
       ) +
-    stat_smooth(
-      data = gfw_daily_new %>% filter(grp=="Diff", Date>=enforce_date),
-      method = "lm_robust", formula = y ~ rcs(x, knots_post),
-      show.legend = F
+      ## Fit from restricted cubic spline. Note that I use a minor hack (i.e. 
+      ## delete obs on enforcement date) to remove the annoying vertical line
+      ## between the pre- and post- periods.
+      geom_line(
+        data = . %>% mutate(fit = ifelse(Date==enforce_date, NA, fit)),
+        aes(y = fit), lwd = 1
       ) +
-    geom_vline(xintercept = anticip_date, col = "gray15") +
-    geom_vline(xintercept = enforce_date, col = "gray15", lty = 5) +
-    ## Add "break even" text.
-    geom_text(
-      data = ann_text,
-      aes(label=lab), hjust = 0, family = font_type, col = "black", show.legend = F
+      geom_ribbon(
+        data = . %>% filter(grp == "Diff"),
+        aes(ymin=lwr_hac, ymax=upr_hac), show.legend = FALSE,
+        alpha=0.3, col = NA
       ) +
-    labs(
-      y = "Daily fishing hours per '000 km",
-      caption = "Note: Mock-up figure only. See accompanying STATA code for correct standard errors, etc."
+      geom_hline(yintercept = 0, lwd = 0.25, col = "gray") +
+      geom_vline(xintercept = anticip_date, col = "gray15") +
+      geom_vline(xintercept = enforce_date, col = "gray15", lty = 5) +
+      geom_text(
+        data = recovery_df, aes(y = y, label = lab), 
+        col = "black", hjust = "left", vjust = "top", size = 3.5
       ) +
-    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-    scale_colour_manual(
-      values = c("PIPA"="#E41A1C", "Control"="#377EB8", "Difference"="maroon"),
-      breaks = c("PIPA", "Control", "Difference")
+      labs(
+        y = "Daily fishing hours per '000 km",
+        caption = "\nNote: Minor differences in the above confidence interval compared to the published figure arise due to different software (i.e. R vs. Stata)."
       ) +
-    scale_fill_manual(
-      values = c("PIPA"="#E41A1C", "Control"="#377EB8", "Difference"="maroon"),
-      breaks = c("PIPA", "Control", "Difference")
+      scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+      scale_colour_manual(
+        values = c("PIPA"="#E41A1C", "Control"="#377EB8", "Difference"="maroon"),
+        breaks = c("PIPA", "Control", "Difference")
       ) +
-    facet_wrap(~grp, scales = "free_y", ncol = 1) +
-    theme(
-      legend.title = element_blank(),
-      legend.position = "bottom",
-      legend.key.width = unit(3, "lines"),
-      axis.title.x = element_blank(),
-      strip.text = element_blank(),
-      plot.caption = element_text(face="italic")
-      ) 
-  
-  f_name <- "figure3-R-mockup"
-  if(f_var!="logistic_hours_norm") {
-    f_name <- paste0(f_name, "-", gsub("_hours_norm","",f_var))
+      scale_fill_manual(
+        values = c("PIPA"="#E41A1C", "Control"="#377EB8", "Difference"="maroon"),
+        breaks = c("PIPA", "Control", "Difference")
+      ) +
+      facet_wrap(~grp, scales = "free_y", ncol = 1) +
+      theme(
+        legend.title = element_blank(),
+        legend.position = "bottom",
+        legend.key.width = unit(3, "lines"),
+        axis.title.x = element_blank(),
+        strip.text = element_blank(),
+        plot.caption = element_text(face="italic")
+      )
+    
+    print(fig)
+    
+    message(paste0("Break even date is ", break_even))
+    
   }
-  
-  fig3 +
-    ggsave(
-      paste0(here(), "/figures/PNGs/", f_name,".png"),
-      width = 10, height = 8
-      )
-  fig3 +
-    ggsave(
-      paste0(here(), "/figures/", f_name,".pdf"),
-      width = 10, height = 8,
-      device = cairo_pdf
-      )
-  
-  print(fig3)
 
-  message(paste0("Break even date is ", break_even))
-  
-  ## Separately, find the magnitude of the anticipatory effect; i.e. how much
-  ## extra fishing was experienced in PIPA relative to the Control region.
-  ## Will be used in Figs. 4 and 5.
-  if(f_var=="logistic_hours_norm") { ## Change to "nnet_hours_norm" if desired. (Same result.)
-    anticip_effect <<-
-      gfw_daily %>% 
-      filter(Date>=start_date, Date<enforce_date) %>% 
-      group_by(region) %>%
-      summarise(culm_hours = sum(logistic_hours_norm)) %>%
-      spread(region, culm_hours) %>%
-      mutate(anticip_effect = round(PIPA/Control, 1)) %>%
-      pull(anticip_effect)
-  }
-  
-})
+fig3 <- break_even_plot("logistic_hours_norm") ## Change to "nnet_hours_norm" for an alternate measure
+fig3 +
+  ggsave(
+    here("figures/PNGs/figure3-R.png"),
+    width = 10, height = 8
+  )
+fig3 +
+  ggsave(
+    here("figures/figure3-R.pdf"),
+    width = 10, height = 8,
+    device = cairo_pdf
+  )
 
 dev.off()
-rm(sst, control_area_km2, f_measure)
-  
+rm(sst, control_area_km2)
+
 ############################################################################
 ### Fig. 4 (Global extrapolation exercise I: MPA coverage by FAO region) ###
 ############################################################################
@@ -518,9 +526,9 @@ rm(sst, control_area_km2, f_measure)
 ## http://www.fao.org/geonetwork/srv/en/main.home?uuid=ac02a460-da52-11dc-9d70-0017f293bd28
 fao_regions <- 
   read_sf(
-    dsn = paste0(here(), "/data/shapefiles/FAO_AREAS"), 
+    dsn = here("data/shapefiles/FAO_AREAS"), 
     layer = "FAO_AREAS"
-    )  %>%
+  )  %>%
   filter(F_LEVEL=="MAJOR") %>%
   mutate(F_CODE = as.character(F_CODE)) %>%
   st_as_sf() 
@@ -528,7 +536,7 @@ fao_regions <-
 ## Read in the MPA-coverage-by-FAO-region data.
 ## Source: WDPA, including MPAs already designated and not terrestrial.
 ## https://www.protectedplanet.net/marine
-mpa_by_region <- read_csv(paste0(here(), "/data/mpa_by_region.csv"))
+mpa_by_region <- read_csv(here("data/mpa_by_region.csv"))
 
 ## Fishing effort announcement effect scalar from PIPA D-i-D analysis.
 ## Should already have been calculated as part of Figure 3 above...
@@ -543,7 +551,7 @@ mpa_size <- 0.3
 ## Current F/FMSY for each region is catch-weighted mean for that region.
 ## These numbers match supplementary materials from that publication.
 status_by_fao_region <- 
-  read_csv(paste0(here(), "/data/status_by_FAO_region.csv")) %>%
+  read_csv(here("data/status_by_FAO_region.csv")) %>%
   mutate(current_FvFmsy = CatchWtMeanF) %>%
   ## Add column for expected F/FMSY under MPA announcement scenario
   ## Apply announcement effect scalar to proportion of current F/FMSY equal to the increase in MPA size
@@ -555,11 +563,11 @@ status_by_fao_region <-
     ## Proportionally increase current F/FMSY based on announcement effect, and 
     ## fraction of fishing pressure that would be affected by MPA announcement.
     mpa_FvFmsy = (current_FvFmsy*anticip_effect*mpa_increase) + (current_FvFmsy * (1-mpa_increase))
-    )
+  )
 
 ## Read in the stock status from Costello et al. (2016).
 ## This contains current stock status (F/FMSY) for all stocks in the database.
-stock_status <- read.csv(paste0(here(), "/data/stock_status.csv"))
+stock_status <- read.csv(here("data/stock_status.csv"))
 
 ## Do the following for each stock: 1) Figure out which FAO regions it exists in, 
 ## 2) take the average MPA increase across regions, and then 3) figure out what 
@@ -589,10 +597,10 @@ stock_status_processed <-
         ## Proportionally increase current F/FMSY based on announcement effect, 
         ## and fraction of fishing pressure that would be affected by MPA announcement.
         mpa_FvFmsy = (current_FvFmsy*anticip_effect * average_mpa_increase) + (current_FvFmsy * (1-average_mpa_increase))
-        )
+      )
     
-    }
-    ) %>%
+  }
+  ) %>%
   bind_rows()
 
 ## Calculate the current fraction of fisheries experiencing overfishing, followed
@@ -602,14 +610,14 @@ percent_overfishing <-
   mutate(
     current_overfishing = ifelse(current_FvFmsy > 1, 1, 0),
     after_overfishing = ifelse(mpa_FvFmsy > 1, 1, 0)
-    ) %>%
+  ) %>%
   summarize(
     overfishing_before = sum(current_overfishing)/n()*100,
     overfishing_after = sum(after_overfishing)/n()*100
-    )
+  )
 
 ## Get the FAO names for labelling
-fao_names <- read.csv(paste0(here(), "/data/fao_names.csv"))
+fao_names <- read.csv(here("data/fao_names.csv"))
 
 ## Finally, we are ready to plot the MPA coverage by FAO region.
 fig4 <- 
@@ -619,7 +627,7 @@ fig4 <-
     fao_names %>%
       select(RegionFAO = Code, name = Name_en) %>%
       mutate(RegionFAO = as.character(RegionFAO))
-    ) %>%
+  ) %>%
   mutate(region_name = paste(RegionFAO,name,sep=" - ")) %>%
   ggplot(aes(y = fraction_mpa, x = reorder(factor(region_name), fraction_mpa))) +
   geom_hline(yintercept = 0.3, linetype = 2,alpha=0.5) +
@@ -634,20 +642,20 @@ fig4 <-
     panel.grid.major = element_line(color = "white"), 
     panel.grid.minor = element_line(color = "white"),        
     axis.text=element_text(size=10, colour="black")
-    )
+  )
 
 ## Save to disk
 fig4 +
   ggsave(
-    paste0(here(), "/figures/PNGs/figure4.png"),
+    here("figures/PNGs/figure4.png"),
     width=5, height=3
-    )
+  )
 fig4 +
   ggsave(
-    paste0(here(), "/figures/figure4.pdf"),
+    here("figures/figure4.pdf"),
     width=5, height=3,
     device = cairo_pdf
-    )
+  )
 
 dev.off()
 rm(fig4, stock_status, stock_status_processed, fao_names, mpa_by_region)
@@ -666,11 +674,11 @@ fao_regions_long <-
   left_join(
     status_by_fao_region %>%
       select(F_CODE = RegionFAO,
-                    `Current~italic(F/F["MSY"])` = current_FvFmsy,
-                    `italic(F/F["MSY"])~after~reserve~announcement` = mpa_FvFmsy
-                    ) %>%
+             `Current~italic(F/F["MSY"])` = current_FvFmsy,
+             `italic(F/F["MSY"])~after~reserve~announcement` = mpa_FvFmsy
+      ) %>%
       mutate(F_CODE = as.character(F_CODE))
-    ) %>% 
+  ) %>% 
   ## Make tibble long, so that we can facet by period
   gather(Period, FvFmsy,`Current~italic(F/F["MSY"])`:`italic(F/F["MSY"])~after~reserve~announcement`) %>%
   st_as_sf() %>%
@@ -689,7 +697,7 @@ fig5 <-
   geom_sf(
     data = fao_regions_long,
     aes(fill = FvFmsy), lwd = 0.08, color = "black"
-    ) + 
+  ) + 
   ## Colourblind-friendly colours
   scale_fill_gradientn(
     colors = c("#360263","darkorchid","gold","orangered1"),
@@ -697,7 +705,7 @@ fig5 <-
     limits = c(0,max(fao_regions_long$FvFmsy,na.rm=TRUE)),
     guide = "colorbar",
     name = expression(~italic(F/F["MSY"]))
-    ) +
+  ) +
   facet_wrap(~Period,ncol=1,labeller=label_parsed) +
   theme_bw() +
   theme(
@@ -708,19 +716,19 @@ fig5 <-
     axis.text.y=element_blank(),
     axis.ticks.y=element_blank(),
     strip.background = element_rect(fill = "white")
-    )
+  )
 
 ## Save to disk
 fig5 +
   ggsave(
-    filename=paste0(here(), "/figures/PNGs/figure5.png"),
+    filename=here("figures/PNGs/figure5.png"),
     width=4, height=3
-    )
+  )
 fig5 +
   ggsave(
-    filename=paste0(here(), "/figures/figure5.pdf"),
+    filename=here("figures/figure5.pdf"),
     width=4, height=3
-    )
+  )
 
 dev.off()
 rm(fig5, fao_regions, fao_regions_long, status_by_fao_region, world_land)
@@ -769,21 +777,21 @@ figS5 <-
   labs(
     x = "Before preemptive phase", 
     y = "During preemptive phase"
-    ) +
+  ) +
   theme(legend.position = "none")
 #
 figS5 +
   ggsave(
-    paste0(here(), "/figures/PNGs/figureS5.png"),
+    here("figures/PNGs/figureS5.png"),
     width = 8, height = 6
-    )
+  )
 #
 figS5 +
   ggsave(
-    paste0(here(), "/figures/figureS5.pdf"),
+    here("figures/figureS5.pdf"),
     width = 8, height = 6,
     device = cairo_pdf
-    )
+  )
 
 ## As above, but now by owner company
 fleets_owner <-
@@ -828,13 +836,13 @@ figS6 <-
 #
 figS6 +
   ggsave(
-    paste0(here(), "/figures/PNGs/figureS6.png"),
+    here("figures/PNGs/figureS6.png"),
     width = 8, height = 6
   )
 #
 figS6 +
   ggsave(
-    paste0(here(), "/figures/figureS6.pdf"),
+    here("figures/figureS6.pdf"),
     width = 8, height = 6,
     device = cairo_pdf
   )
