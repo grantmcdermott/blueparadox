@@ -1,8 +1,8 @@
+# Libraries ---------------------------------------------------------------
+
 library(sf)
-library(maps)
-library(rworldmap)
-## Note: Need development version of ggsn for map to work
-library(ggsn) ## remotes::install_github('oswaldosantos/ggsn')
+library(rnaturalearth)
+library(ggsn)
 library(sp)
 library(raster)
 library(rms)
@@ -10,6 +10,7 @@ library(tidyverse)
 library(broom)
 library(sandwich)
 library(furrr)
+plan(multisession)
 # library(grid) ## Loads with ggsn
 library(scales)
 library(lubridate)
@@ -17,20 +18,19 @@ library(cowplot)
 library(extrafont)
 library(here)
 
-#######################################################
-########## LOAD FUNCTIONS AND GLOBAL ELEMENTS #########
-#######################################################
 
-### Assign global elements for figures. 
+# Functions and global elements -------------------------------------------
 
-## Assign font. Note that fonts should be registered to the extrafont package DB 
-## first. If the below font is not available, then extrafont package will use the 
+## Plotting font (optional). 
+## Note that fonts should be registered to the extrafont package DB first. 
+## If the below font is not available, then extrafont package will use the 
 ## Arial default. For instructions, see: https://github.com/wch/extrafont
 ## Open Sans can be downloaded here: https://fonts.google.com/specimen/Open+Sans.
-## Alternatively, you can try the showtext package: https://cran.rstudio.com/web/packages/showtext/vignettes/introduction.html
+## Alternatively, you can try the showtext package: 
+## https://cran.rstudio.com/web/packages/showtext/vignettes/introduction.html
 font_type <- choose_font(c("Open Sans", "sans")) 
 
-## Set the plotting theme.
+## Main plotting theme.
 theme_set(
   theme_cowplot() + 
     theme(
@@ -46,35 +46,135 @@ anticip_date <- ymd("2013-09-01") ## http://www.earthisland.org/journal/index.ph
 enforce_date <- ymd("2015-01-01")
 key_dates <- c(anticip_date, enforce_date)
 
-## Use Robin World projection for maps
+## Use Robinson World projection for maps
 proj_string <- "+proj=robin +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs +lon_0=180" 
 
-####################################################
-########## READ IN THE PRIMARY SOURCE DATA #########
-####################################################
 
-## 1) GFW data: Daily, vessel-level fishing effort effort in Kirbati, split by sub-area.
+# Data --------------------------------------------------------------------
+
+
+# * GFW -------------------------------------------------------------------
+
+## Daily, vessel-level fishing effort effort in Kirbati, split by sub-area.
 gfw <- read_csv(here("data/gfw_split.csv"))
 
-## 2) SST from NOAA via Google Earth Engine. 
+
+# * SST -------------------------------------------------------------------
+
+## Sea surface temps from NOAA via Google Earth Engine. 
 ## See: https://code.earthengine.google.com/37b28087611328018b11eac46d8d1966
 sst <- read_csv(here("data/sst_split.csv")) 
 
 
-####################################
-########### MAIN FIGURES ########### 
-####################################
+# * MPAs / WDPAs ----------------------------------------------------------
 
-################################
-### Fig. 1 (MPAs over time) ####
-################################
-
-## Read in the World Database on Protected Areas (WDPA).
+## World Database on Protected Areas (WDPA).
 ## Downloaded from: https://www.protectedplanet.net/
 ## Will get some warning messages but these can be ignored.
 wdpa <- read_csv(here("data/wdpa.csv"))
 
-## Collapse into yearly MPA totals (i.e. How many MPAs were designated that year)
+## MPA-coverage-by-FAO-region data.
+## Source: WDPA, including MPAs already designated and not terrestrial.
+## https://www.protectedplanet.net/marine
+mpa_by_region <- read_csv(here("data/mpa_by_region.csv"))
+
+
+# * Maps & shapefiles -----------------------------------------------------
+
+# * * Kiribati EEZ --------------------------------------------------------
+
+eez_kiribati <- 
+  read_sf(
+    dsn = here("data/shapefiles/World_EEZ_v9_20161021_LR"), 
+    layer = "eez_lr"
+  ) %>%
+  subset(
+    GeoName %in% c("Kiribati Exclusive Economic Zone (Phoenix Islands)",
+                   "Kiribati Exclusive Economic Zone (Line Islands)",
+                   "Kiribati Exclusive Economic Zone (Gilbert Islands)")
+  ) %>%
+  st_transform(proj_string)
+
+
+# * * PIPA ----------------------------------------------------------------
+
+## Nested inside the Kirbati EEZ
+pipa_shape <- 
+  read_sf(
+    dsn = here("data/shapefiles/pipa_shapefile"), 
+    layer = "worldheritagemarineprogramme"
+  ) %>%
+  st_transform(proj_string)
+
+
+# * * Pacific-centered world map ------------------------------------------
+
+world <- ne_countries(scale = "small", returnclass = "sf")
+
+## While the above is ready to go with the default projection, we run into
+## annoying visual artefacts when converting to our preferred Robinson 
+## projection. So we have to do a bit of manual fixing first. 
+## See: https://stackoverflow.com/a/56152845
+
+## Define a long & slim polygon that overlaps the meridian line & set its CRS to 
+## match that of world.
+tmp_polygon <- st_polygon(x = list(rbind(c(-0.0001, 90),
+                                         c(0, 90),
+                                         c(0, -90),
+                                         c(-0.0001, -90),
+                                         c(-0.0001, 90)))) %>%
+  st_sfc() %>%
+  st_set_crs(st_crs(world))
+
+## Modify our world sf objects to remove overlapping portions
+world <- world %>% st_difference(tmp_polygon)
+
+## Finally, convert to modified version of world to the Robinson projection
+world_robinson <- st_transform(world, crs = proj_string)
+
+rm(world)
+
+
+# * * FAO regions ---------------------------------------------------------
+
+## Source: 
+## http://www.fao.org/geonetwork/srv/en/main.home?uuid=ac02a460-da52-11dc-9d70-0017f293bd28
+fao_regions <- 
+  read_sf(
+    dsn = here("data/shapefiles/FAO_AREAS"), 
+    layer = "FAO_AREAS"
+    )  %>%
+  filter(F_LEVEL=="MAJOR") %>%
+  mutate(F_CODE = as.character(F_CODE)) %>%
+  st_as_sf() 
+
+## FAO names for labeling
+fao_names <- read.csv(here("data/fao_names.csv"))
+
+
+# * Fish stock status -----------------------------------------------------
+
+## Source: Costello et al. (2016); http://www.pnas.org/content/113/18/5125
+
+## Read in current stock status by FAO region. Note: Current F/FMSY for each 
+## region is catch-weighted mean for that region. These numbers match the SM 
+## from Costello et al.
+status_by_fao_region <- 
+  read_csv(here("data/status_by_FAO_region.csv")) %>%
+  select(-X1) %>%
+  mutate(current_FvFmsy = CatchWtMeanF)
+
+## Read in the stock status from Costello et al. (2016).
+## This contains current stock status (F/FMSY) for all stocks in ther database.
+stock_status <- read.csv(here("data/stock_status.csv"))
+
+
+# Figures -----------------------------------------------------------------
+
+# * Fig. 1 (MPAs over time) -----------------------------------------------
+
+## Collapse WDPA into yearly MPA totals (i.e. How many MPAs were designated that 
+## year)
 mpas <- 
   wdpa %>%
   ## MARINE: Allowed values: 0 (100% Terrestrial PA), 1 (Coastal: marine and terrestrial PA), and 2 (100 % marine PA).
@@ -133,30 +233,7 @@ dev.off()
 rm(mpas, fig1)
 
 
-#############################
-### Fig. 2 (Kiribati Map) ###
-#############################
-
-## Read in the Kiribati EEZ shapefile
-eez_kiribati <- 
-  read_sf(
-    dsn = here("data/shapefiles/World_EEZ_v9_20161021_LR"), 
-    layer = "eez_lr"
-  ) %>%
-  subset(
-    GeoName %in% c("Kiribati Exclusive Economic Zone (Phoenix Islands)",
-                   "Kiribati Exclusive Economic Zone (Line Islands)",
-                   "Kiribati Exclusive Economic Zone (Gilbert Islands)")
-  ) %>%
-  st_transform(proj_string)
-
-## Read in the the PIPA shapefile (which is nested inside the Kirbati EEZ)
-pipa_shape <- 
-  read_sf(
-    dsn = here("data/shapefiles/pipa_shapefile"), 
-    layer = "worldheritagemarineprogramme"
-  ) %>%
-  st_transform(proj_string)
+# * Fig. 2 (Kiribati Map) -------------------------------------------------
 
 ## Define a bounding box for Kiribati
 kbbox <- c(167, 214, -14.25, 8.25)
@@ -167,9 +244,6 @@ proj4string(kiribati_bounding_box) <- "+proj=longlat +datum=WGS84 +no_defs"
 ## Transform Kiribati bounding box into SF
 kiribati_bounding_box <- st_as_sf(kiribati_bounding_box) 
 
-## Create a (Pacific-centered) world sf object from the maps package
-world2 <- st_as_sf(maps::map("world2", plot=F, fill=T))
-
 ## Create a plot basemap, including the Kiribati EEZ, PIPA, Line Islands, 
 ## Gilbert Islands, and the global map. This base map will then be manipulated 
 ## to make the Kirbati map and the global inset map. These elements will finally 
@@ -177,12 +251,12 @@ world2 <- st_as_sf(maps::map("world2", plot=F, fill=T))
 base_map <- 
   ggplot() +
   geom_sf(
-    data = eez_kiribati,# %>% st_transform(proj_string),
+    data = eez_kiribati,
     aes(fill = "Phoenix Islands (Non-PIPA)"),
     lwd=0.25
   ) +
   geom_sf(
-    data = pipa_shape,# %>% st_transform(proj_string),
+    data = pipa_shape,
     aes(fill = "PIPA     "),
     lwd=0.25
   ) +
@@ -196,7 +270,7 @@ base_map <-
     lwd=0.25
   ) +
   geom_sf(
-    data = world2,
+    data = world_robinson,
     fill = "black", col = "black", lwd = 0
   ) +
   theme_bw() +
@@ -238,13 +312,14 @@ k_map <-
   coord_sf(
     xlim = c(map_bbox["xmin"],map_bbox["xmax"]), 
     ylim = c(map_bbox["ymin"],map_bbox["ymax"])
-  )  +
+    )  +
   ggsn::scalebar(
-    data = eez_kiribati,# %>% st_transform(proj_string),
+    data = eez_kiribati,
     dist = 1000,
-    dd2km = FALSE,
+    dist_unit = "km",
+    transform = FALSE,
     st.dist = 0.05,
-    st.size = 5,
+    # st.size = 5,
     location="topleft"
   ) +
   xlab("") +
@@ -277,11 +352,12 @@ save_plot(
 
 dev.off()
 rm(fig2, k_map, w_map, kiribati_bounding_box, base_map, eez_kiribati, 
-   pipa_shape, kbbox, map_bbox, world2)
+   pipa_shape, kbbox, map_bbox, world_robinson)
 
-#################################################
-### Fig. 3 (PIPA vs non-PIPA fishing effort) ####
-#################################################
+
+# * Fig. 3 (PIPA vs non-PIPA fishing effort) ------------------------------
+
+# * * Treatment vs. control prep ------------------------------------------
 
 ## First, we need to combine Gilbert Islands and Line Group into a single  
 ## "Control" region. We'll drop the"Phoenix Group Non-PIPA" in the process 
@@ -338,7 +414,8 @@ gfw_daily <-
   gfw_daily %>%
   mutate_at(vars(raw_hours:nnet_hours_norm), ~.*1000) 
 
-## Regression analysis
+
+# * * Regression analysis -------------------------------------------------
 
 ## Choose the number of knots for fitting the restricted cubic spline (RCS) in 
 ## the pre- and post-enforcement periods, respectively.
@@ -369,7 +446,7 @@ break_even_plot <-
     gfw_main <-
       gfw_main %>%
       mutate(grp = "Main") %>% 
-      rename("y_var" = f_var) %>%
+      rename("y_var" = all_of(f_var)) %>%
       select(Date, region, y_var, grp)
     
     gfw_rcs <- bind_rows(gfw_main, gfw_diff)
@@ -387,7 +464,8 @@ break_even_plot <-
       nest() %>%
       ## Run a separate model for each period
       mutate(mod = data %>%
-               map( ~ lm(y_var ~ region*rms::rcs(as.numeric(Date), knots_post), data = .x))) %>%
+               map( ~ lm(y_var ~ region*rms::rcs(as.numeric(Date), knots_post), 
+                         data = .x))) %>%
       ## Extract DoF
       mutate(dof = mod %>% map(~ df.residual(.x))) %>%
       ## Generate (point) predictions
@@ -428,6 +506,18 @@ break_even_plot <-
       slice(1) %>%
       pull(Date)
     
+    ## Similarly, calculate an "anticipation effect" scalar (how much extra
+    ## fishing occurred relative to the control region).
+    anticip_effect <- 
+      gfw_rcs %>%
+      filter(grp=="Diff", Date>=start_date) %>%
+      ungroup %>%
+      mutate(culm_diff = cumsum(fit)) %>%
+      filter(Date==enforce_date) %>%
+      pull(culm_diff)
+    ## Convert to percent version and send to the global environment for later.
+    anticip_effect <<- as.numeric(round(anticip_effect/100, 1) + 1)
+    
     ## How long does it take to recover (in years)?
     recovery <- round((enforce_date %--% break_even)/ dyears(1), 1)
     ## Make a DF version (with a label) for the plot
@@ -437,7 +527,7 @@ break_even_plot <-
         region = factor("Difference", levels = levels(gfw_rcs$region)),
         grp = factor("Diff", levels = levels(gfw_rcs$grp)),
         lab = paste0(" Preemptive fishing = ", recovery, " years of ban")
-      )
+        )
     
     ## Plot the figure
     fig <-
@@ -518,25 +608,11 @@ fig3 +
 dev.off()
 rm(sst, control_area_km2)
 
-############################################################################
-### Fig. 4 (Global extrapolation exercise I: MPA coverage by FAO region) ###
-############################################################################
 
-## Read in the FAO regions and convert to sf object
-## http://www.fao.org/geonetwork/srv/en/main.home?uuid=ac02a460-da52-11dc-9d70-0017f293bd28
-fao_regions <- 
-  read_sf(
-    dsn = here("data/shapefiles/FAO_AREAS"), 
-    layer = "FAO_AREAS"
-  )  %>%
-  filter(F_LEVEL=="MAJOR") %>%
-  mutate(F_CODE = as.character(F_CODE)) %>%
-  st_as_sf() 
+# * Fig. 4 (Global extrapolation ex. I: MPA coverage by FAO region) -------
 
-## Read in the MPA-coverage-by-FAO-region data.
-## Source: WDPA, including MPAs already designated and not terrestrial.
-## https://www.protectedplanet.net/marine
-mpa_by_region <- read_csv(here("data/mpa_by_region.csv"))
+
+# * * Calculations --------------------------------------------------------
 
 ## Fishing effort announcement effect scalar from PIPA D-i-D analysis.
 ## Should already have been calculated as part of Figure 3 above...
@@ -546,33 +622,27 @@ mpa_by_region <- read_csv(here("data/mpa_by_region.csv"))
 ## i.e. The IUCN global target of 30% by 2030: https://portals.iucn.org/congress/motion/053
 mpa_size <- 0.3
 
-## Read in current stock status by FAO region. 
-## Source: Costello et al. (2016); http://www.pnas.org/content/113/18/5125
-## Current F/FMSY for each region is catch-weighted mean for that region.
-## These numbers match supplementary materials from that publication.
-status_by_fao_region <- 
-  read_csv(here("data/status_by_FAO_region.csv")) %>%
-  mutate(current_FvFmsy = CatchWtMeanF) %>%
-  ## Add column for expected F/FMSY under MPA announcement scenario
-  ## Apply announcement effect scalar to proportion of current F/FMSY equal to the increase in MPA size
-  ## Leave remaining F/FMSY proportion equal to current levels
+## Join the 'status_by_fao_region' and 'mpa_by_region' DFs / sf objects
+status_by_fao_region =
+  status_by_fao_region %>%
+  ## Add column for expected F/FMSY under MPA announcement scenario. Apply 
+  ## announcement effect scalar to proportion of current F/FMSY equal to the
+  ## increase in MPA size. Leave remaining F/FMSY proportion equal to current 
+  ## levels.
   left_join(mpa_by_region %>% rename(RegionFAO = F_CODE)) %>%
   ## If MPA size is already greater than target, don't need to increase MPA size
   mutate(
     mpa_increase = ifelse(fraction_mpa > mpa_size, 0, mpa_size - fraction_mpa),
     ## Proportionally increase current F/FMSY based on announcement effect, and 
     ## fraction of fishing pressure that would be affected by MPA announcement.
-    mpa_FvFmsy = (current_FvFmsy*anticip_effect*mpa_increase) + (current_FvFmsy * (1-mpa_increase))
-  )
+    mpa_FvFmsy = (current_FvFmsy * anticip_effect * mpa_increase) + 
+      (current_FvFmsy * (1-mpa_increase))
+    )
 
-## Read in the stock status from Costello et al. (2016).
-## This contains current stock status (F/FMSY) for all stocks in the database.
-stock_status <- read.csv(here("data/stock_status.csv"))
 
 ## Do the following for each stock: 1) Figure out which FAO regions it exists in, 
 ## 2) take the average MPA increase across regions, and then 3) figure out what 
 ## the status would be after MPA announcement.
-plan(multiprocess)
 stock_status_processed <- 
   furrr::future_map(unique(stock_status$IdOrig), function(x) {
     
@@ -610,14 +680,14 @@ percent_overfishing <-
   mutate(
     current_overfishing = ifelse(current_FvFmsy > 1, 1, 0),
     after_overfishing = ifelse(mpa_FvFmsy > 1, 1, 0)
-  ) %>%
+    ) %>%
   summarize(
     overfishing_before = sum(current_overfishing)/n()*100,
     overfishing_after = sum(after_overfishing)/n()*100
-  )
+    )
 
-## Get the FAO names for labelling
-fao_names <- read.csv(here("data/fao_names.csv"))
+
+# * * The figure... -------------------------------------------------------
 
 ## Finally, we are ready to plot the MPA coverage by FAO region.
 fig4 <- 
@@ -627,12 +697,16 @@ fig4 <-
     fao_names %>%
       select(RegionFAO = Code, name = Name_en) %>%
       mutate(RegionFAO = as.character(RegionFAO))
-  ) %>%
+    ) %>%
   mutate(region_name = paste(RegionFAO,name,sep=" - ")) %>%
   ggplot(aes(y = fraction_mpa, x = reorder(factor(region_name), fraction_mpa))) +
   geom_hline(yintercept = 0.3, linetype = 2,alpha=0.5) +
   geom_bar(stat="identity") +
-  geom_text(aes(label = scales::percent(fraction_mpa), y = fraction_mpa + 0.061),size=3.25) +
+  geom_text(
+    aes(label = scales::percent(fraction_mpa, accuracy = 0.1), 
+        y = fraction_mpa + 0.061),
+    size=3.25
+    ) +
   xlab("FAO Major Fishing Area") +
   ylab("Current MPA Coverage") +
   coord_flip() +
@@ -642,7 +716,7 @@ fig4 <-
     panel.grid.major = element_line(color = "white"), 
     panel.grid.minor = element_line(color = "white"),        
     axis.text=element_text(size=10, colour="black")
-  )
+    )
 
 ## Save to disk
 fig4 +
@@ -660,13 +734,12 @@ fig4 +
 dev.off()
 rm(fig4, stock_status, stock_status_processed, fao_names, mpa_by_region)
 
-##########################################################################
-### Fig. 5 (Global extrapolation exercise II: Map of temporary changes ###
-##########################################################################
 
-## Use a conventional (Prime Meridian-centered) Robinson projection for this figure 
-proj_string_fao <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" ## Robinson World
+# * Fig. 5 (Global extrapolation ex. II: Map of temporary changes ---------
 
+## Use a conventional (i.e. Prime Meridian-centered) Robinson projection for 
+## this figure 
+proj_string_fao <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" 
 ## Make long format names in prep for figure
 fao_regions_long <- 
   fao_regions %>%
@@ -685,9 +758,10 @@ fao_regions_long <-
   ## Reproject to Robinson
   st_transform(proj_string_fao)
 
-## Create a (Prime Meridian-centered) world sf object from the maps package
+## Create a (Prime Meridian-centered) world sf object
 world_land <-
-  st_as_sf(rworldmap::countriesLow) %>% ## data(countriesLow) is from the rworldmap package
+  # st_as_sf(rworldmap::countriesLow) %>%
+  ne_countries(scale = "small", returnclass = "sf") %>%
   st_transform(proj_string_fao)
 
 ## Create global plot of current and expected fishery status by FAO region  
@@ -733,9 +807,11 @@ fig5 +
 dev.off()
 rm(fig5, fao_regions, fao_regions_long, status_by_fao_region, world_land)
 
-##########################################
-### Figs. S5 and S6 (Fleet footprint) ####
-##########################################
+
+# Supplementary Material --------------------------------------------------
+
+
+# * Figs. S5 and S6 (Fleet footprint)  ------------------------------------
 
 ## First create a data frame of fleet footprints (i.e. relative fishing effort)
 ## by country.
